@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -21,7 +22,7 @@ public class ChatController {
     private final VectorStore vectorStore;
 
     @GetMapping("/chat")
-    public String chat(@RequestParam(value = "query") String query) {
+    public Map<String, Object> chat(@RequestParam(value = "query") String query) {
         List<Document> similarDocuments = vectorStore.similaritySearch(
                 SearchRequest.query(query).withTopK(3)
         );
@@ -41,6 +42,11 @@ public class ChatController {
                 %s
                 """.formatted(context, query);
 
-        return chatModel.call(prompt);
+        String answer =  chatModel.call(prompt);
+
+        return Map.of(
+                "answer", answer,
+                "citations", similarDocuments.stream().map(Document::getContent).toList()
+        );
     }
 }
