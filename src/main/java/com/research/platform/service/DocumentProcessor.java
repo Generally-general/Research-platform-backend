@@ -67,9 +67,17 @@ public class DocumentProcessor {
     }
 
     private String extractFromPdf(File file) throws IOException {
-        try(PDDocument document = PDDocument.load(file)) {
+        try(PDDocument document = org.apache.pdfbox.Loader.loadPDF(file)) {
             PDFTextStripper stripper = new PDFTextStripper();
-            return stripper.getText(document);
+            String text = stripper.getText(document);
+
+            if(text == null || text.trim().isEmpty()) {
+                log.info("PDF contains no selectable text. Falling back to OCR...");
+                return extractUsingOcr(file);
+            }
+            return text;
+        } catch (TesseractException e) {
+            throw new RuntimeException(e);
         }
     }
 

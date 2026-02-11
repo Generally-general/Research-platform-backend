@@ -28,6 +28,7 @@ public class IngestionService {
     public String saveFile(MultipartFile file) {
         try {
             String fileName = file.getOriginalFilename();
+            assert fileName != null;
             Files.copy(file.getInputStream(), this.root.resolve(fileName), StandardCopyOption.REPLACE_EXISTING);
             return fileName;
         } catch (Exception e) {
