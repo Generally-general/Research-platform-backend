@@ -29,59 +29,73 @@ public class ResearchChatController {
     @GetMapping("/earning-call-summary")
     public Map<String, Object> analyzeEarnings(@RequestParam String fileName) {
         try {
-            log.info("Searching for chunks related to file: {}", fileName);
-            SearchRequest request = SearchRequest.query("management discussion, tone, revenue guidance, growth initiatives, challenges")
-                .withTopK(10);
+            log.info("Checking analysis status for: [{}]", fileName);
+            SearchRequest request = SearchRequest.query("management discussion, tone, guidance")
+                    .withTopK(50);
 
             List<Document> allDocs = vectorStore.similaritySearch(request);
 
+            if (allDocs.isEmpty()) {
+                log.info("Vector store is empty. OCR/Embedding still in progress...");
+                return Map.of(
+                        "status", "processing",
+                        "message", "Document is currently being processed by the OCR engine."
+                );
+            }
+
             List<Document> filteredDocs = allDocs.stream()
-                    .filter(doc -> fileName.equals(doc.getMetadata().get("source")))
-                    .limit(10) // Take the top 10 relevant to this file
+                    .filter(doc -> {
+                        String source = (String) doc.getMetadata().get("source");
+                        return source != null && source.trim().equalsIgnoreCase(fileName.trim());
+                    })
+                    .limit(15)
                     .toList();
 
             if (filteredDocs.isEmpty()) {
-                return Map.of("error", "No data found for: " + fileName + ". Check if OCR produced text.");
+                return Map.of(
+                        "status", "processing",
+                        "message", "Awaiting vectorization for this specific file."
+                );
             }
 
+            log.info("Found {} chunks for {}. Generating report...", filteredDocs.size(), fileName);
+
             String context = filteredDocs.stream()
-                .map(Document::getContent)
-                .collect(Collectors.joining("\n\n---\n\n"));
+                    .map(Document::getContent)
+                    .collect(Collectors.joining("\n\n---\n\n"));
 
             String systemPrompt = """
-                        ROLE: Senior Equity Research Analyst.
-                                    TASK: Generate a Management Commentary Report based ONLY on the provided context.
-                                    CONSTRAINT: If info is missing, write "Not Disclosed". Use professional, cautious language.
-                                   \s
-                                    JUDGMENT CALLS:
-                                        - MANAGEMENT TONE: Identify shifts in tone (e.g., concern over raw material prices vs. optimism in rural recovery).
-                                        - GROWTH INITIATIVES: Look specifically for 'Beardo', 'Saffola', or 'Digital-first brands'.
-                                        - GUIDANCE: Look for 'margin expansion', 'volume growth', or 'revenue targets'.
-                                        - HALLUCINATION GUARD: If capacity utilization or a specific metric isn't mentioned, explicitly state 'Metric Not Disclosed'.
-                                   \s
-                                    STRUCTURE:
-                                    1. SENTIMENT: [Optimistic/Cautious/Neutral/Pessimistic] + Evidence.
-                                    2. CONFIDENCE: [High/Medium/Low] based on the specificity of guidance.
-                                    3. KEY POSITIVES: 3-5 concise bullet points.
-                                    4. KEY CONCERNS: 3-5 concise bullet points.
-                                    5. GUIDANCE: Revenue, margin, and capex outlook.
-                                    6. GROWTH INITIATIVES: 2-3 specific new projects/strategies.
-                   \s
-                                    CONTEXT:
-                                    %s
-                   \s""".formatted(context);
+                    ROLE: Senior Equity Research Analyst.
+                    TASK: Generate a Management Commentary Report based ONLY on the provided context.
+                    CONSTRAINT: If info is missing, write "Not Disclosed". Use professional, cautious language.
+                    
+                    STRUCTURE:
+                    1. SENTIMENT: [Optimistic/Cautious/Neutral/Pessimistic] + Evidence.
+                    2. CONFIDENCE: [High/Medium/Low] based on specificity.
+                    3. KEY POSITIVES: 3-5 bullet points.
+                    4. KEY CONCERNS: 3-5 bullet points.
+                    5. GUIDANCE: Revenue, margin, and capex outlook.
+                    6. GROWTH INITIATIVES: 2-3 specific new projects.
+                    
+                    CONTEXT:
+                    %s
+                    """.formatted(context);
 
             String report = chatModel.call(systemPrompt);
 
             return Map.of(
+                    "analyzedFile", fileName,
                     "report", report,
-                    "sourceCount", filteredDocs.size(),
-                    "analyzedFile", fileName
+                    "status", "complete",
+                    "metadata", Map.of(
+                            "model", "Llama-3.3-70b",
+                            "sourceCount", filteredDocs.size(),
+                            "processingType", "Hybrid OCR"
+                    )
             );
         } catch (Exception e) {
-            log.error("CRITICAL ERROR in analyzeEarnings: ", e); // This prints the full error in your console
+            log.error("CRITICAL ERROR in analyzeEarnings for file {}: ", fileName, e);
             return Map.of("error", e.getMessage(), "type", e.getClass().getSimpleName());
         }
-
     }
 }

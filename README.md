@@ -1,86 +1,56 @@
 # Research Insights Platform
 
-A high-performance RAG (Retrieval-Augmented Generation) system designed to extract, index, and query insights from unstructured documents (PDFs, scans, and images). Built with **Java Spring Boot** and **Spring AI**, this project serves as a local proof-of-concept for a system designed to scale to **54 million pages**.
+A document analysis tool built with Java Spring Boot and Spring AI. It extracts text from PDFs (including scans) and uses an LLM (Large Language Model) to answer questions based on the document content.
 
----
+## Core Logic
 
-## Overview
-The platform addresses the challenge of "dark data" in unstructured documents. By combining hybrid OCR extraction with a vector-based retrieval loop, it enables users to ask complex questions and receive answers grounded in specific source text (Citations).
-
-![System Demo](chat.gif)
-
-### Key Features
-* **Asynchronous Ingestion:** Uses Spring's event-driven architecture to process heavy files in the background without blocking the UI.
-* **Hybrid Extraction:** Automatically switches between **Apache PDFBox** (for text-based PDFs) and **Tesseract OCR** (for scans/images).
-* **Citation-First RAG:** Mitigates AI hallucinations by returning raw document chunks alongside LLM-generated answers.
-* **Cost-Optimized Infrastructure:** Achieves ₹0 infrastructure cost by using local **ONNX embedding models** and the **Groq Free Tier**.
-
----
+* **Hybrid Extraction**: Uses PDFBox for digital text and Tesseract OCR for scanned images.
+* **Background Processing**: Files are processed asynchronously using Spring Events so the UI doesn't freeze.
+* **RAG (Retrieval-Augmented Generation)**: Chunks text into vectors and stores them locally in `vectorstore.json`.
+* **LLM Integration**: Uses Groq (Llama 3.3-70b) to generate answers grounded in the extracted text.
 
 ## Tech Stack
-* **Backend:** Java 22, Spring Boot 3.3.5
-* **AI Orchestration:** Spring AI (Milestone 4)
-* **LLM:** Llama 3.3-70b (via Groq Cloud API)
-* **Embeddings:** Local Transformers (ONNX models)
-* **Vector Store:** SimpleVectorStore (Local JSON persistence)
-* **Extraction:** Apache PDFBox, Tess4J (Tesseract)
-* **Tools:** Lombok, Slf4j, Maven, Postman
 
----
+* **Language**: Java 22
+* **Framework**: Spring Boot 3.3.5
+* **AI**: Spring AI (Milestone 4)
+* **OCR**: Tesseract (via Tess4J)
+* **Embeddings**: Local ONNX models (runs on CPU)
+* **API**: Groq Cloud
 
-## System Architecture
+## How it Works
 
+1. **Upload**: User sends a PDF via the `/api/docs/upload` endpoint.
+2. **Process**: The system extracts text. If no text is found, it automatically runs OCR.
+3. **Index**: Text is converted into vectors and saved to a local JSON file.
+4. **Analyze**: The `/api/research/earning-call-summary` endpoint retrieves the most relevant text chunks and sends them to the LLM to generate a structured report.
 
+## Setup & Environment Variables
 
-1.  **Ingestion:** User uploads a document via REST API.
-2.  **Event Trigger:** An internal `ApplicationEvent` is published, handing off the file to the `DocumentProcessor`.
-3.  **Parsing:** The system detects file type and extracts raw text.
-4.  **Embedding:** Text is chunked and converted into vectors using a local CPU-bound model.
-5.  **Persistence:** Vectors are stored in `vectorstore.json`.
-6.  **Chat:** The `/chat` endpoint performs a similarity search, builds a context-rich prompt, and queries the LLM.
+To run this project (locally or on Koyeb), you must set:
 
----
+* `GROQ_API_KEY`: Your API key from Groq Console.
+* `TESSDATA_PREFIX`: Path to your Tesseract training data (usually `src/main/resources/tessdata`).
 
-## Setup & Installation
+## Local Run
 
-### Prerequisites
-* JDK 22+
-* Maven 3.x
-* **Tesseract OCR:** [Download here](https://github.com/UB-Mannheim/tesseract/wiki). Ensure `eng.traineddata` is placed in `src/main/resources/tessdata`.
+1. Install Tesseract OCR on your machine.
+2. Clone the repo and run `mvn spring-boot:run`.
+3. The server starts on `port 8080`.
 
-# Run the Application
+## API Endpoints
 
-1. Clone the repository.
-2. Run `mvn clean install`.
-3. Start the application via your IDE or `mvn spring-boot:run`.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/docs/upload` | Uploads a PDF/Image for indexing. |
+| `GET` | `/api/research/earning-call-summary` | Returns a structured analyst report for a specific file. |
 
-## API Reference
+## Project Status (MVP)
 
-### 1. Upload Document
-**Endpoint:** `POST /api/docs/upload`  
-**Body:** `form-data` (file)
-
-### 2. Research Chat
-**Endpoint:** `GET /api/research/chat?query=What is the main stack?`  
-**Response:**
-```json
-{
-  "answer": "The tech stack includes Java, Spring Boot...",
-  "citations": ["Raw text chunk 1...", "Raw text chunk 2..."]
-}
-```
-
-## Challenges Faced & Lessons Learned
-
-* **Model Decommissioning:** Successfully pivoted from `llama3-8b` to `llama-3.3-70b-versatile` on Groq when the initial model was retired mid-development.
-* **Local Embedding Optimization:** Solved the "Ollama high-resource" constraint by implementing Local Transformers for embeddings, keeping the local footprint lightweight while offloading reasoning to the cloud.
-* **Asynchronous Design:** Implemented non-blocking background tasks using `@Async` to ensure the platform remains responsive even during heavy OCR processing.
-
-## Roadmap
-
-* [ ] Implement Reranker (Cross-Encoders) to improve retrieval precision.
-* [ ] Add support for multi-document context merging.
-* [ ] Migrate `SimpleVectorStore` to pgvector for production-grade scaling.
+* [x] Hybrid OCR for scanned PDFs.
+* [x] Local vector storage (No database required).
+* [x] Structured Analyst Report prompt.
+* [x] Frontend integration with loading states.
 
 ---
 
