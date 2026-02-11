@@ -4,21 +4,27 @@ WORKDIR /app
 COPY . .
 RUN mvn clean package -DskipTests
 
-# Stage 2: Runtime Environment
+# Stage 2: Runtime
 FROM eclipse-temurin:22-jre-jammy
 WORKDIR /app
 
-# Install Tesseract OCR and English data
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    && rm -rf /var/lib/apt/lists/*
+# Install Tesseract
+RUN apt-get update && apt-get install -y tesseract-ocr tesseract-ocr-eng && rm -rf /var/lib/apt/lists/*
 
-# Copy the built jar
+# PRE-DOWNLOAD THE MODEL (The Fix)
+# This directory matches what Spring AI expects
+RUN mkdir -p /tmp/spring-ai-onnx-generative
+ADD https://github.com/spring-projects/spring-ai/raw/main/models/spring-ai-transformers/src/main/resources/onnx/all-MiniLM-L6-v2/model.onnx /tmp/spring-ai-onnx-generative/model.onnx
+ADD https://raw.githubusercontent.com/spring-projects/spring-ai/main/models/spring-ai-transformers/src/main/resources/onnx/all-MiniLM-L6-v2/tokenizer.json /tmp/spring-ai-onnx-generative/tokenizer.json
+
 COPY --from=build /app/target/*.jar app.jar
 
-# Important: Expose the port Koyeb uses
 EXPOSE 8080
 
-# Run the app with optimized memory for the Nano instance
-ENTRYPOINT ["java", "-Xmx400m", "-jar", "app.jar"]
+# TUNED JVM FLAGS FOR 512MB (The Fix)
+ENTRYPOINT ["java", \
+    "-Xmx300m", \
+    "-Xss512k", \
+    "-XX:+UseSerialGC", \
+    "-Dspring.ai.embedding.transformer.cache.directory=/tmp/spring-ai-onnx-generative", \
+    "-jar", "app.jar"]
