@@ -83,7 +83,7 @@ public class DocumentProcessor {
 
     private String extractUsingOcr(File file) throws TesseractException {
         Tesseract tesseract = new Tesseract();
-        tesseract.setDatapath("src/main/resources/tessdata");
+        tesseract.setDatapath("/usr/share/tesseract-ocr/4.00/tessdata");
         return tesseract.doOCR(file);
     }
 }
