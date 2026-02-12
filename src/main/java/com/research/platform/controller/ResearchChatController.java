@@ -7,6 +7,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,6 +23,11 @@ import java.util.stream.Collectors;
 public class ResearchChatController {
     private final ChatModel chatModel;
     private final VectorStore vectorStore;
+
+    public ResearchChatController(@Qualifier("openAiChatModel") ChatModel chatModel, VectorStore vectorStore) {
+        this.chatModel = chatModel;
+        this.vectorStore = vectorStore;
+    }
 
     private static final Logger log =
             LoggerFactory.getLogger(ResearchChatController.class);
