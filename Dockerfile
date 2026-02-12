@@ -16,4 +16,8 @@ COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
 
 # Basic memory limit for 512MB
-ENTRYPOINT ["java", "-Xmx400m", "-jar", "app.jar"]
+ENTRYPOINT ["java", \
+    "-Xmx256m", \
+    "-Xms128m", \
+    "-XX:+UseSerialGC", \
+    "-jar", "app.jar"]
