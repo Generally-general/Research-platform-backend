@@ -1,6 +1,5 @@
 package com.research.platform.controller;
 
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
@@ -19,7 +18,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/research")
-@RequiredArgsConstructor
 public class ResearchChatController {
     private final ChatModel chatModel;
     private final VectorStore vectorStore;
